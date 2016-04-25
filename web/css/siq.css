@@ -1,0 +1,95 @@
+.clickable{
+	cursor: pointer;
+}
+#newSiqForm{
+	padding: 20px;
+	padding-bottom: 10px;
+}
+pre{
+	margin-top: 10px;
+}
+.navbar-custom{
+	background-color: rgba(95, 150, 162, 0.24);
+	border-radius: 0px;
+}
+.navbar-header{
+	font-family: 'Michroma', sans-serif;
+}
+
+.edit-icon{
+	color: #777;
+	margin-right: 10px;
+}
+
+.del-icon{
+	color: rgba(255, 0, 0, 0.54);
+}
+
+.entry-body{
+	font-size: 11pt;
+    color: #888;
+    width: 90%;
+    position: relative;
+    left: 20px;
+}
+
+.entryBox{
+	padding: 10px;
+}
+
+.arrow{
+	font-size: 9pt;
+}
+
+#search{
+	position: relative;
+    top: 8px;
+    right: 10px;
+    width: 200px;
+}
+
+#newEntry{
+	position: relative;
+	right: 15px;
+	background-color: rgba(255, 255, 255, 0.77);
+	color: #66AFCC;
+	border-color: #66AFCC;
+}
+
+.modal-header{
+	background-color: rgba(95, 150, 162, 0.24);
+	font-family: 'Michroma', sans-serif;
+}
+
+.searchIcon{
+	position: relative;
+    top: 18px;
+    right: 35px;
+    z-index: 1;
+    color: #ddd;
+}
+
+#undo{
+	margin-right: 20px;
+	background-color: #F8FB79;
+	color: #949400;
+	border-color: #949400;
+}
+
+.entry-heading{
+	font-size: 12pt;
+}
+
+.highlight-entry{
+    border-radius: 3px;
+    background-color: white;
+}
+
+hr{
+	margin-bottom: 0px;
+	margin-top: 0px;
+}
+
+.darken-background{
+	background-color: #EFEFEF;
+}
