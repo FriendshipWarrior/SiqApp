@@ -1,7 +1,7 @@
 <html ng-app="siqApp">
 
 
-  <head>
+<head>
     <meta charset="utf-8">
     <title>SIQ</title>
 
@@ -16,89 +16,279 @@
     <script src="https://ajax.aspnetcdn.com/ajax/jquery/jquery-2.2.1.min.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.5/angular.min.js"></script>
     <script src="scripts/modal.js"></script>
-    
-    <link rel="stylesheet" href="/css/siq.css">
-  </head>
+
+    <link rel="stylesheet" href="css/siq.css">
+
+    <!-- text to speech stuff ---->
+    <script src='https://code.responsivevoice.org/responsivevoice.js'></script>
+    <script>
+        function speakWords(wordsToSay)
+        {
+            var t = $(wordsToSay).text();
+            responsiveVoice.speak(String(t));
+            return;
+        }
+        function speakSym(words)
+        {
+            responsiveVoice.speak(words);
+            return;
+        }
+
+    </script>
+
+    <!-- end of text to speech stuff-->
+
+    <!-- socket talking stuff------------>
+    <script>
+        $(function () {
+            "use strict";
+
+            // for better performance - to avoid searching in DOM
+            var content = $('#content');
+            var input = $('#input');
+            var status = $('#status');
+
+            // my color assigned by the server
+            var myColor = false;
+            // my name sent to the server
+            var myName = false;
+
+            // if user is running mozilla then use it's built-in WebSocket
+            window.WebSocket = window.WebSocket || window.MozWebSocket;
+
+            // if browser doesn't support WebSocket, just show some notification and exit
+            if (!window.WebSocket) {
+                content.html($('<p>', { text: 'Sorry, but your browser doesn\'t '
+                + 'support WebSockets.'} ));
+                input.hide();
+                $('span').hide();
+                return;
+            }
+
+            // open connection
+            var connection = new WebSocket('ws://localhost:1337');
+
+            connection.onopen = function () {
+                // first we want users to enter their names
+                input.removeAttr('disabled');
+                status.text('Choose name:');
+            };
+
+            connection.onerror = function (error) {
+                // just in there were some problems with conenction...
+                content.html($('<p>', { text: 'Sorry, but there\'s some problem with your '
+                + 'connection or the server is down.' } ));
+            };
+
+            // most important part - incoming messages
+            connection.onmessage = function (message) {
+                // try to parse JSON message. Because we know that the server always returns
+                // JSON this should work without any problem but we should make sure that
+                // the massage is not chunked or otherwise damaged.
+                try {
+                    var json = JSON.parse(message.data);
+                } catch (e) {
+                    console.log('This doesn\'t look like a valid JSON: ', message.data);
+                    return;
+                }
+
+                // NOTE: if you're not sure about the JSON structure
+                // check the server source code above
+                if (json.type === 'color') { // first response from the server with user's color
+                    myColor = json.data;
+                    status.text(myName + ': ').css('color', myColor);
+                    input.removeAttr('disabled').focus();
+                    // from now user can start sending messages
+                } else if (json.type === 'history') { // entire message history
+                    // insert every single message to the chat window
+                    for (var i=0; i < json.data.length; i++) {
+                        addMessage(json.data[i].author, json.data[i].text,
+                                json.data[i].color, new Date(json.data[i].time));
+                    }
+                } else if (json.type === 'message') { // it's a single message
+                    input.removeAttr('disabled'); // let the user write another message
+                    addMessage(json.data.author, json.data.text,
+                            json.data.color, new Date(json.data.time));
+                } else {
+                    console.log('Hmm..., I\'ve never seen JSON like this: ', json);
+                }
+            };
 
 
-  <body ng-controller="siqController as siq">
-    <!-- NAVIGATION BAR -->
-    <nav class="navbar navbar-custom">
-      <div class="container-fluid">
+            //Send mesage when user presses Enter key
+
+            input.keydown(function(e) {
+                if (e.keyCode === 13) {
+                    var msg = $(this).val();
+                    if (!msg) {
+                        return;
+                    }
+                    // send the message as an ordinary text
+                    connection.send(msg);
+                    $(this).val('');
+                    // disable the input field to make the user wait until server
+                    // sends back response
+                    input.attr('disabled', 'disabled');
+
+                    // we know that the first message sent from a user their name
+                    if (myName === false) {
+                        myName = msg;
+                    }
+                }
+            });
+
+
+            //This method is optional. If the server wasn't able to respond to the
+            //in 3 seconds then show some error message to notify the user that
+            //something is wrong.
+
+            setInterval(function() {
+                if (connection.readyState !== 1) {
+                    status.text('Error');
+                    input.attr('disabled', 'disabled').val('Unable to comminucate '
+                            + 'with the WebSocket server.');
+                }
+            }, 3000);
+
+            //Add message to the chat window
+
+            function addMessage(author, message, color, dt) {
+                content.prepend('<p><span style="color:' + color + '">' + author + '</span> @ ' +
+                        + (dt.getHours() < 10 ? '0' + dt.getHours() : dt.getHours()) + ':'
+                        + (dt.getMinutes() < 10 ? '0' + dt.getMinutes() : dt.getMinutes())
+                        + ': ' + message + '</p>');
+            }
+        });
+    </script>
+    <!-- end of socket talking stuff--->
+
+</head>
+
+
+<body ng-controller="siqController as siq">
+
+<!-- NAVIGATION BAR -->
+<nav class="navbar navbar-custom">
+    <div class="container-fluid">
         <div class="container">
-          
-          <div class="row">
-            <div class="navbar-header">
-              <h3 class="navbar-text">SIQ</h3>
-            </div>
-            <button id="newEntry" data-toggle="modal" data-target="#upsertModal" class="btn navbar-btn navbar-right" ng-click="siq.operation = 'New Entry'; siq.clear()">New Entry</button>
-            <span class="searchIcon glyphicon glyphicon-search navbar-right"></span>
-            <input type="search" class="form-control navbar-right" id="search" placeholder="Search" ng-model="siq.search"></input>
-            <button id="undo" class="btn navbar-btn navbar-right" hidden ng-show="siq.undo.length > 0" ng-click="siq.Undo(); $event.stopPropagation()">Undo Delete <span class="badge">{{siq.undo.length}}</span></button>
-          </div>
-        
-        </div>
-        
-      </div>
-    </nav>
 
-    <div class="container">
-      <div class="row" ng-repeat="entry in siq.data | filter:siq.search">
-        <div class="entry">
-          <hr/>
-            <div class="entryBox" >
-              <div class="entry-heading" ng-click="siq.getEntry($index)">
-                <span class="arrow glyphicon glyphicon-menu-right" ng-show="siq.panelNum != $index"></span>
-                <span class="arrow glyphicon glyphicon-menu-down" ng-show="siq.panelNum == $index"></span>
-                <span class="clickable">{{entry.subject}}</span>
+            <div class="row">
+                <div class="navbar-header">
+                    <h3 class="navbar-text" onclick = "speakWords(this)">SIQ</h3>
+
+                </div>
+                <button id="newEntry" data-toggle="modal" data-target="#upsertModal" class="btn navbar-btn navbar-right" ng-click="siq.operation = 'New Entry'; siq.clear()" onclick = "speakWords(this)">New Entry</button>
+
+                <span class="searchIcon glyphicon glyphicon-search navbar-right" onclick = "speakSym('search')"></span>
+                <input type="search" class="form-control navbar-right" id="search" placeholder="Search" ng-model="siq.search"></input>
+                <button id="undo" class="btn navbar-btn navbar-right" hidden ng-show="siq.undo.length > 0" ng-click="siq.Undo(); $event.stopPropagation()" onclick = "speakWords(this)">Undo Delete <span class="badge">{{siq.undo.length}}</span></button>
+
+            </div>
+
+
+        </div>
+
+    </div>
+</nav>
+<div class = "container">
+    <div class = "row">
+        <div class = "col-sm-6" onclick = "speakWords(this)">
+            this is the left side
+        </div>
+        <div class = "col-sm-6" onclick = "speakWords(this)">
+            this is the right side
+        </div>
+    </div>
+
+</div>
+
+<div class="container">
+    <div class = "col-sm-8">
+        <div class="row" ng-repeat="entry in siq.data | filter:siq.search">
+
+            <div class="entry">
+                <hr/>
+                <div class="entryBox" >
+                    <div class="entry-heading" ng-click="siq.getEntry($index)">
+                        <span class="arrow glyphicon glyphicon-menu-right" ng-show="siq.panelNum != $index"onclick = "speakSym('show')"></span>
+                        <span class="arrow glyphicon glyphicon-menu-down" ng-show="siq.panelNum == $index" onclick = "speakSym('drop down')"></span>
+                        <span class="clickable" onclick = "speakWords(this)">{{entry.subject}}</span>
                 <span class="pull-right">
-                  <span class="edit-icon glyphicon glyphicon-pencil clickable" title="Edit Entry" data-toggle="modal" data-target="#upsertModal" ng-click="siq.editClick($index)"></span>
-                  <span class="del-icon glyphicon glyphicon-trash clickable" title="Delete Entry" ng-click="siq.deleteEntry($index)"></span>
+                  <span class="edit-icon glyphicon glyphicon-pencil clickable" title="Edit Entry" data-toggle="modal" data-target="#upsertModal" ng-click="siq.editClick($index)" onclick = "speakSym('edit')"></span>
+                  <span class="del-icon glyphicon glyphicon-trash clickable" title="Delete Entry" ng-click="siq.deleteEntry($index)" onclick = "speakSym('delete')"></span>
                 </span>
-              </div>
-              <br/>
-              <div class="entry-body" ng-show="siq.panelNum == $index">{{entry.contents}}</div>
-            </div>
-          
-        </div>
-      </div>
-      
-      <div class="row">
-        
-      </div>
+                    </div>
+                    <br/>
+                    <div class="entry-body" ng-show="siq.panelNum == $index" onclick = "speakWords(this)">{{entry.contents}}</div>
+                </div>
 
-      <!-- Modal -->
-      <div id="upsertModal" class="modal fade" role="dialog">
+            </div>
+
+        </div>
+        <div>
+            <!--Pager Class-->
+            <ul class="pager">
+                <li class="previous"><a href="#">Previous</a></li>
+                <li class="next"><a href="#">Next</a></li>
+            </ul>
+        </div>
+    </div><!-- end of left side data-->
+    <div class = "col-sm-4">
+
+        <div class = "chatBox">
+            <div id="content">
+            </div>
+
+            <div>
+                <span id="status">Connecting...</span>
+                <input type="text" id="input" class = "form-control" disabled="disabled" />
+            </div>
+
+            <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+            <!--<script src="chat-frontend.js"></script>-->
+        </div>
+    </div><!-- end of chat area-->
+
+
+
+
+
+    <!-- Modal -->
+    <div id="upsertModal" class="modal fade" role="dialog">
         <div class="modal-dialog">
 
-        <!-- Modal content-->
-        <div class="modal-content">
-          <div class="modal-header">
-            <h4 class="modal-title">{{siq.operation}}</h4>
-          </div>
-          <div class="modal-body">
-            <div id="input-row" class="row">
-              <form id="newSiqForm">
-                <div class="form-group">
-                  <input type="text" class="form-control" id="subject" placeholder="Subject" ng-model="siq.siqSubject">
+            <!-- Modal content-->
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title" onclick = "speakWords(this)">{{siq.operation}}</h4>
                 </div>
-                <div class="form-group">
-                  <textarea id="content" class="form-control" rows="3" placeholder="Content" ng-model="siq.siqContents"></textarea>
+                <div class="modal-body">
+                    <div id="input-row" class="row">
+                        <form id="newSiqForm">
+                            <div class="form-group">
+                                <input type="text" class="form-control" id="subject" placeholder="Subject" ng-model="siq.siqSubject" onclick = "speakWords(this)">
+                            </div>
+                            <div class="form-group">
+                                <textarea id="content" class="form-control" rows="3" placeholder="Content" ng-model="siq.siqContents" onclick = "speakWords(this)"></textarea>
+                            </div>
+
+                        </form>
+                    </div>
                 </div>
-                
-              </form>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-default" data-dismiss="modal" ng-click="siq.upsertEntry(siq.siqSubject,siq.siqContents)" onclick = "speakWords(this)">Submit</button>
+                    <button type="button" class="btn btn-default" data-dismiss="modal" onclick = "speakWords(this)">Cancel</button>
+                </div>
             </div>
-          </div>
-          <div class="modal-footer">
-            <button type="submit" class="btn btn-default" data-dismiss="modal" ng-click="siq.upsertEntry(siq.siqSubject,siq.siqContents)">Submit</button>
-            <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
-          </div>
-        </div>
 
         </div>
-      </div>
     </div>
-    <pre>{{ siq.data | json }}</pre>
-    <script src="scripts/siqController.js"></script>
-  </body>
+</div>
+</div><!--end of main body div-->
+</div>
+
+<pre>{{ siq.data | json }}</pre>
+<script src="scripts/siqController.js"></script>
+
+</body>
 </html>

@@ -5,7 +5,7 @@ var mongoClient = mongo.MongoClient;
 
 // REST API V2 calls go here.
 router.get('/api/v2/entries.json', function(req, res) {
-    mongoClient.connect('mongodb://localhost:27017/test', function(err, db) {
+    mongoClient.connect('mongodb://localhost:27017/test', function(err, db) { //192.168.99.100:32770
         if (err) {
             throw err;
         }
@@ -100,7 +100,6 @@ router.delete('/api/v2/entries/:id', function(req, res){
             throw err;
         }
         console.log(`Checking mongodb for _id:${id}`);
-        //find({_id:ObjectId("56fab77f6ab3ead947e97973")})
         db.collection('entries').remove({_id:id}, function(err, result) {
             if (err) {
                 console.log(`Deleting _id ${id} failed: ${err}`)
